@@ -12,6 +12,9 @@ class Downloader:
         :param peers: List of peers (dictionaries with 'ip' and 'port').
         :param output_path: Path to save the downloaded file.
         """
+        if not peers:
+            raise ValueError("At least one peer is required for downloading.")
+
         self.file_manager = file_manager
         self.piece_hashes = piece_hashes
         self.peers = peers
@@ -25,7 +28,7 @@ class Downloader:
         Start downloading pieces from peers.
         """
         threads = []
-        for piece_index in self.piece_hashes:
+        for piece_index in range(len(self.piece_hashes)):
             peer = self.peers[
                 piece_index % len(self.peers)
             ]  # Simple round-robin peer selection
@@ -74,7 +77,9 @@ class Downloader:
                     print(
                         f"Downloaded piece {piece_index} from {peer['ip']}:{peer['port']}"
                     )
-        except Exception as e:
+        except socket.error as e:
             print(
                 f"Failed to download piece {piece_index} from {peer['ip']}:{peer['port']}: {e}"
             )
+        except Exception as e:
+            print(f"An error occurred while downloading piece {piece_index}: {e}")

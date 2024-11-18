@@ -3,12 +3,14 @@ import hashlib
 
 
 class FileManager:
-    def __init__(self, piece_size=512 * 1024):
+    def __init__(self, piece_size, piece_hashes):
         """
         Initialize the FileManager.
         :param piece_size: Size of each piece in bytes (default 512KB).
         """
         self.piece_size = piece_size
+        self.piece_hashes = piece_hashes
+        self.downloaded_pieces = {}
 
     def split_file(self, file_path):
         """
