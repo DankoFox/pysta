@@ -45,13 +45,9 @@ pysta/
 │   └── repository/              # Test files
 ├── tests/                       # Unit and integration tests
 ├── utils/                       # Helper utilities
-│   ├── hashing.py               # File hashing utilities
-│   ├── protocol_helpers.py      # Tracker and peer protocol utilities
-│   └── network_utils.py         # Network helpers
-├── main.py                      # Application entry point
-├── README.md                    # Project documentation
-├── requirements.txt             # Python dependencies
-└── setup.py                     # Project setup
+    ├── hashing.py               # File hashing utilities
+    ├── protocol_helpers.py      # Tracker and peer protocol utilities
+    └── network_utils.py         # Network helpers
 ```
 
 ## Requirements
