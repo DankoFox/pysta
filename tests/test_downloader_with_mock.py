@@ -49,5 +49,41 @@ def test_downloader_with_mock():
     ), f"Downloaded data does not match! Expected: {expected_data}, Got: {downloaded_data}"
 
 
+def test_downloader_multiple_pieces():
+    pieces = {
+        0: b"Piece 0 data",
+        1: b"Piece 1 data",
+        2: b"Piece 2 data",
+        3: b"Piece 3 data",
+    }
+
+    # Start the mock peer server
+    server = MockPeerServer("127.0.0.1", 0, pieces)
+    server_thread = threading.Thread(target=server.start)
+    server_thread.start()
+
+    while not server.running:
+        pass  # Wait until the server is running
+    peer_port = server.port
+    peers = [{"ip": server.host, "port": peer_port}]
+
+    output_file = "downloaded_multiple_pieces.txt"
+    piece_hashes = {
+        index: hashlib.sha1(piece).hexdigest() for index, piece in pieces.items()
+    }
+    file_manager = FileManager(piece_size=512 * 1024, piece_hashes=piece_hashes)
+
+    downloader = Downloader(file_manager, piece_hashes, peers, output_file)
+    downloader.start_download()
+
+    with open(output_file, "rb") as f:
+        downloaded_data = f.read()
+    expected_data = b"".join(pieces.values())
+
+    assert (
+        downloaded_data == expected_data
+    ), f"Downloaded data does not match! Expected: {expected_data}, Got: {downloaded_data}"
+
+
 if __name__ == "__main__":
     test_downloader_with_mock()
