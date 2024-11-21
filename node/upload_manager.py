@@ -47,7 +47,8 @@ class UploadManager:
         Stop the upload server.
         """
         self.running = False
-        self.server_socket.close()
+        if self.server_socket:
+            self.server_socket.close()
         print("UploadManager stopped.")
 
     def handle_request(self, client_socket):
@@ -76,13 +77,13 @@ class UploadManager:
             client_socket.close()
 
 
-if __name__ == "__main__":
-    file_path = "path/to/your/file.txt"  # Specify the file path here
-    file_manager = FileManager(piece_size=512 * 1024, piece_hashes={})
-    file_manager.split_file(file_path)  # Split the file and populate piece hashes
-    upload_manager = UploadManager("127.0.0.1", 5000, file_manager, file_path)
-
-    try:
-        upload_manager.start_server()
-    except KeyboardInterrupt:
-        upload_manager.stop_server()
+# if __name__ == "__main__":
+#     file_path = "path/to/your/file.txt"  # Specify the file path here
+#     file_manager = FileManager(piece_size=512 * 1024, piece_hashes={})
+#     file_manager.split_file(file_path)  # Split the file and populate piece hashes
+#     upload_manager = UploadManager("127.0.0.1", 5000, file_manager, file_path)
+#
+#     try:
+#         upload_manager.start_server()
+#     except KeyboardInterrupt:
+#         upload_manager.stop_server()

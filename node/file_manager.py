@@ -1,5 +1,6 @@
 import os
 import hashlib
+import logging
 
 
 class FileManager:
@@ -17,9 +18,12 @@ class FileManager:
         :param file_path: Path to the file to split.
         :return: A dictionary mapping piece index to its hash.
         """
+
         not_a_file = not os.path.isfile(file_path)
         if not_a_file:
             raise FileNotFoundError(f"File not found: {file_path}")
+
+        print(f"Splitting file: {file_path} into pieces of size: {self.piece_size}")
 
         with open(file_path, "rb") as file:
             index = 0
