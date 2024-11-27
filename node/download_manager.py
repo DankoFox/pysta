@@ -12,6 +12,7 @@ class DownloadManager:
         :param file_path: Path to save the downloaded file.
         :param piece_size: Size of each piece in bytes.
         :param piece_hashes: List of hashes for each piece.
+        :param file_size: Total size of the file in bytes.
         :param max_retries: Maximum number of retries for downloading a piece.
         """
         self.file_path = file_path
@@ -23,7 +24,7 @@ class DownloadManager:
 
         # Pre-truncate the file to full size
         with open(self.file_path, "wb") as f:
-            f.write(b"\x00" * self.file_size)
+            f.truncate(self.file_size)
         print(f"File initialized to {self.file_size} bytes with placeholders.")
 
     def connect_to_peer(self, peer_address):
@@ -37,49 +38,41 @@ class DownloadManager:
         print(f"Connected to peer at {peer_address}")
         return sock
 
-    def request_piece(self, sock, piece_index):
+    def request_piece(self, sock, file_name, piece_index):
         """
         Request a specific piece from the peer.
 
         :param sock: The socket connected to the peer.
+        :param file_name: Name of the file to request.
         :param piece_index: Index of the piece to request.
         :return: The received piece data.
         """
-
-        print("\n============++++++")
-        print(f"FILE LENGTH: {self.file_size}\n")
         retries = 0
 
-        # Calculate the correct size for the requested piece
+        # Calculate the size of the requested piece
         start_offset = piece_index * self.piece_size
         is_last_piece = piece_index == len(self.piece_hashes) - 1
-        piece_size = (
-            (self.file_size - start_offset) if is_last_piece else self.piece_size
-        )
-
-        if piece_size < 0:
-            piece_size = 0
-
-        print(f"THIS IS THE PIECE SIZE CALCULATION: {piece_size}")
+        piece_size = self.file_size - start_offset if is_last_piece else self.piece_size
 
         while retries < self.max_retries:
             try:
-                sock.sendall(f"GET_PIECE {piece_index}\n".encode())
-                piece_data = sock.recv(piece_size)  # Request correct size
+                request_message = f"GET_PIECE {file_name} {piece_index}"
+                sock.sendall(request_message.encode())
+                piece_data = sock.recv(piece_size)
+                print(f"Received piece {piece_index}: {piece_data}")
 
-                print(f"Received piece {piece_index} from peer.")
-                print("=DEBUG=======================================================")
-                print(f"Requested piece {piece_index}, expected size: {piece_size}")
-                print(f"Received piece size: {len(piece_data)}")
-                print("=DEBUG=======================================================")
-
-                return piece_data
-            except (BrokenPipeError, ConnectionError) as e:
+                if piece_data:
+                    print(f"Received piece {piece_index} from peer.")
+                    return piece_data
+                else:
+                    raise ValueError(f"Empty response for piece {piece_index}")
+            except (socket.error, ValueError) as e:
                 print(f"Error requesting piece {piece_index}: {e}. Retrying...")
                 retries += 1
                 sock = self.connect_to_peer(sock.getpeername())  # Reconnect to peer
+
         raise ConnectionError(
-            f"Failed to retrieve piece {piece_index} after {self.max_retries} attempts"
+            f"Failed to retrieve piece {piece_index} after {self.max_retries} attempts."
         )
 
     def verify_piece(self, piece_data, piece_index):
@@ -92,9 +85,6 @@ class DownloadManager:
         """
         expected_hash = self.piece_hashes[piece_index]
         actual_hash = hashlib.sha256(piece_data).hexdigest()
-
-        print(f"Expected hash for piece {piece_index}: {expected_hash}")
-        print(f"Actual hash for piece {piece_index}: {actual_hash}")
 
         is_valid = expected_hash == actual_hash
         if not is_valid:
@@ -115,21 +105,28 @@ class DownloadManager:
         self.pieces_received[piece_index] = True
         print(f"Piece {piece_index} written to file at offset {offset}.")
 
-    def start_download(self, peer_address):
+    def start_download(self, peer_address, file_name):
         """
         Start the download process from a peer.
 
         :param peer_address: Tuple of (IP, port) of the peer.
+        :param file_name: Name of the file to download.
         """
+        sock = None
         try:
             sock = self.connect_to_peer(peer_address)
             for piece_index in range(len(self.piece_hashes)):
-                piece_data = self.request_piece(sock, piece_index)
+                piece_data = self.request_piece(sock, file_name, piece_index)
                 if self.verify_piece(piece_data, piece_index):
                     self.write_piece_to_file(piece_index, piece_data)
                 else:
-                    print(f"Invalid piece {piece_index} left as placeholder.")
-                time.sleep(0.01)  # Add a short delay to avoid overloading the server
+                    print(f"Invalid piece {piece_index}. Retrying...")
+                    raise ValueError(f"Piece {piece_index} verification failed.")
+                # time.sleep(0.01)  # Prevent overwhelming the peer
             print(f"Download complete. File saved at {self.file_path}")
+        except Exception as e:
+            print(f"Error during download: {e}")
         finally:
-            print("DownloadManager stopped.")
+            if sock:
+                sock.close()
+                print("DownloadManager stopped.")

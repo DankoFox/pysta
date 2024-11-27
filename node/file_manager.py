@@ -1,108 +1,58 @@
-import os
 import hashlib
-import logging
+from threading import Lock
 
 
 class FileManager:
-    def __init__(self, piece_size, piece_hashes: dict):
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(FileManager, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        self.file_pieces = {}  # Dictionary to store pieces for multiple files
+        self.file_metadata = {}  # Dictionary to store metadata for multiple files
+        self.lock = Lock()  # Lock to ensure thread-safe access
+
+    def split_file(self, file_path, piece_size):
         """
-        Initialize the FileManager.
-        :param piece_size: Size of each piece in bytes (default 512KB).
+        Split a file into pieces and generate piece hashes.
         """
-        self.piece_size = piece_size
-        self.piece_hashes = piece_hashes
+        with self.lock:
+            with open(file_path, "rb") as f:
+                content = f.read()
 
-    def split_file(self, file_path):
-        """
-        Splits a file into pieces and calculates their hashes.
-        :param file_path: Path to the file to split.
-        :return: A dictionary mapping piece index to its hash.
-        """
+            pieces = [
+                content[i : i + piece_size] for i in range(0, len(content), piece_size)
+            ]
+            piece_hashes = [hashlib.sha256(piece).hexdigest() for piece in pieces]
+            file_name = file_path.split("/")[-1]
 
-        not_a_file = not os.path.isfile(file_path)
-        if not_a_file:
-            raise FileNotFoundError(f"File not found: {file_path}")
+            self.file_pieces[file_name] = pieces
+            self.file_metadata[file_name] = {
+                "piece_size": piece_size,
+                "total_size": len(content),
+                "piece_hashes": piece_hashes,
+            }
 
-        print(f"Splitting file: {file_path} into pieces of size: {self.piece_size}")
+    def get_metadata(self, file_name):
+        with self.lock:
+            return self.file_metadata.get(file_name)
 
-        with open(file_path, "rb") as file:
-            index = 0
-            while True:
-                piece = file.read(self.piece_size)
-                if not piece:
-                    break
-                piece_hash = hashlib.sha1(piece).hexdigest()
-                self.piece_hashes[index] = piece_hash
-                index += 1
-
-            if not self.piece_hashes:
-                print("Warning: File is empty, no pieces to split.")
-
-        return self.piece_hashes
-
-    def merge_pieces(self, pieces, output_path):
-        """
-        Merges pieces into a single file.
-        :param pieces: A dictionary where keys are piece indices and values are piece data.
-        :param output_path: Path to save the merged file.
-        """
-        with open(output_path, "wb") as file:
-            for index in sorted(pieces.keys()):
-                file.write(pieces[index])
-
-    def get_total_pieces(self, file_path):
-        """
-        Calculate the total number of pieces for a file.
-        :param file_path: Path to the file.
-        :return: Total number of pieces.
-        """
-        not_a_file = not os.path.isfile(file_path)
-
-        if not_a_file:
-            raise FileNotFoundError(f"File not found: {file_path}")
-
-        file_size = os.path.getsize(file_path)
-        return (file_size + self.piece_size - 1) // self.piece_size
-
-    def get_piece(self, piece_index, file_path):
-        """
-        Retrieve a specific piece of the file.
-        :param piece_index: Index of the piece to retrieve.
-        :param file_path: Path to the file.
-        :return: Byte data of the requested piece or None if invalid index.
-        """
-        try:
-            not_a_file = not os.path.isfile(file_path)
-            if not_a_file:
-                raise FileNotFoundError(f"File not found: {file_path}")
-
-            # Calculate the starting position of the piece
-            start = piece_index * self.piece_size
-            end = start + self.piece_size
-
-            # Get file size to check bounds
-            file_size = os.path.getsize(file_path)
-            if start >= file_size:  # Index out of range
-                return None
-
-            # Adjust end for the last piece
-            if end > file_size:
-                end = file_size
-
-            # Read and return the piece
-            with open(file_path, "rb") as file:
-                file.seek(start)
-                return file.read(end - start)
-
-        except Exception as e:
-            print(f"Error retrieving piece {piece_index}: {e}")
+    def get_piece(self, piece_index, file_name):
+        with self.lock:
+            pieces = self.file_pieces.get(file_name)
+            if pieces and 0 <= piece_index < len(pieces):
+                return pieces[piece_index]
             return None
 
-    @staticmethod
-    def hash_piece(piece_data):
-        """
-        Calculate the SHA1 hash of a piece.
-        :param piece_data: Byte data of the piece.
-        :return: Hexadecimal SHA1 hash.
-        """
-        return hashlib.sha1(piece_data).hexdigest()
+    def get_all_info(self):
+        with self.lock:
+            return {
+                "metadata": self.file_metadata.copy(),
+                "pieces": {
+                    file_name: [piece.hex() for piece in pieces]
+                    for file_name, pieces in self.file_pieces.items()
+                },
+            }

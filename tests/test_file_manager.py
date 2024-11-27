@@ -1,41 +1,26 @@
-import os
+import hashlib
 from node.file_manager import FileManager
+from node.upload_manager import UploadManager
 
+file_manager = FileManager()
 
-def test_file_manager():
-    fm = FileManager(piece_size=1024)  # 1KB for testing
-    test_file = "test_file.txt"
-    output_file = "output_file.txt"
+# Split files with different piece sizes
+file_manager.split_file("file1.txt", piece_size=20)
+file_manager.split_file("file2.txt", piece_size=512)
 
-    # Create a test file
-    with open(test_file, "w") as f:
-        f.write("This is a test file for the FileManager module." * 100)
+# Access metadata for each file
+metadata_file1 = file_manager.get_metadata("file1.txt")
+metadata_file2 = file_manager.get_metadata("file2.txt")
 
-    # Test splitting the file
-    piece_hashes = fm.split_file(test_file)
-    assert len(piece_hashes) > 0, "File should be split into multiple pieces."
+print("Metadata for file1.txt:", metadata_file1)
+print("Metadata for file2.txt:", metadata_file2)
 
-    # Create dummy pieces based on the split
-    pieces = {}
-    with open(test_file, "rb") as f:
-        index = 0
-        while True:
-            piece = f.read(1024)
-            if not piece:
-                break
-            pieces[index] = piece
-            index += 1
+# Retrieve a specific piece
+piece = file_manager.get_piece(0, "file1.txt")
+print("First piece of file1.txt:", piece)
 
-    # Test merging the pieces
-    fm.merge_pieces(pieces, output_file)
-    assert os.path.exists(output_file), "Output file should be created."
-    with open(test_file, "rb") as f1, open(output_file, "rb") as f2:
-        assert f1.read() == f2.read(), "Merged file should match the original file."
-
-    # Cleanup
-    os.remove(test_file)
-    os.remove(output_file)
-
-
-if __name__ == "__main__":
-    test_file_manager()
+# Verify piece hashes
+assert (
+    metadata_file1["piece_hashes"][0] == hashlib.sha256(piece).hexdigest()
+), "Hash mismatch for file1.txt piece 0"
+print("Hash verification passed for file1.txt piece 0")

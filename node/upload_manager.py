@@ -4,19 +4,22 @@ from node.file_manager import FileManager
 
 
 class UploadManager:
-    def __init__(self, host, port, file_manager: FileManager, file_path):
+    def __init__(self, host, port, file_manager: FileManager):
         """
         Initialize the UploadManager.
         :param host: Host IP address to bind the server.
         :param port: Port to bind the server.
-        :param file_manager: Instance of FileManager to retrieve file pieces.
-        :param file_path: Path to the file being managed by this UploadManager.
+        :param file_manager: Instance of FileManager to retrieve file pieces and metadata.
         """
         self.host = host
         self.port = port
         self.file_manager = file_manager
-        self.file_path = file_path  # File being managed by this UploadManager
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        buffer_size = 10 * 1024 * 1024  # 10 MB
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_size)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_size)
+
         self.running = False
 
     def start_server(self):
@@ -27,9 +30,7 @@ class UploadManager:
             self.server_socket.bind((self.host, self.port))
             self.server_socket.listen(5)
             self.running = True
-            print(
-                f"UploadManager running on {self.host}:{self.port}, serving file: {self.file_path}"
-            )
+            print(f"UploadManager running on {self.host}:{self.port}")
 
             while self.running:
                 client_socket, client_address = self.server_socket.accept()
@@ -52,38 +53,44 @@ class UploadManager:
         print("UploadManager stopped.")
 
     def handle_request(self, client_socket):
-        """
-        Handle incoming requests from peers.
-        :param client_socket: Socket of the connected peer.
-        """
         try:
-            request = client_socket.recv(1024).decode().strip()
-            if request.startswith("GET_PIECE"):
-                _, piece_index = request.split()
-                piece_index = int(piece_index)
-                piece_data = self.file_manager.get_piece(piece_index, self.file_path)
+            # print("Metadata in FileManager at start:", self.file_manager.get_all_info())
+            while True:
+                # file_manager.get_all_info()
+                request = client_socket.recv(1024).decode().strip()
+                if not request:
+                    break  # Close connection if the client sends no data
+                print(f"Received request: {request}")
 
-                if piece_data:
-                    client_socket.sendall(piece_data)
-                    print(f"Sent piece {piece_index} to peer.")
+                if request.startswith("GET_METADATA"):
+                    _, file_name = request.split()
+                    metadata = self.file_manager.get_metadata(file_name)
+                    if metadata:
+                        client_socket.sendall(str(metadata).encode())
+                        print(f"Sent metadata of {file_name} to peer.")
+                    else:
+                        client_socket.sendall(b"ERROR: Metadata not found.")
+
+                elif request.startswith("GET_PIECE"):
+                    _, file_name, piece_index = request.split()
+                    # print(self.file_manager.get_all_info())
+                    piece_index = int(piece_index)
+                    piece_data = self.file_manager.get_piece(piece_index, file_name)
+                    # print(f"Sending piece {piece_index}: {piece_data}")
+
+                    if piece_data:
+                        client_socket.sendall(piece_data)
+                        print(f"Sent piece {piece_index} of {file_name} to peer.")
+                    else:
+                        client_socket.sendall(b"ERROR: Piece not found.")
+
+                elif request == "QUIT":
+                    print("Client requested to close the connection.")
+                    break
+
                 else:
-                    client_socket.sendall(b"ERROR: Piece not found.")
-
-            else:
-                client_socket.sendall(b"ERROR: Invalid request.")
+                    client_socket.sendall(b"ERROR: Invalid request.")
         except Exception as e:
             print(f"Error handling request: {e}")
         finally:
             client_socket.close()
-
-
-# if __name__ == "__main__":
-#     file_path = "path/to/your/file.txt"  # Specify the file path here
-#     file_manager = FileManager(piece_size=512 * 1024, piece_hashes={})
-#     file_manager.split_file(file_path)  # Split the file and populate piece hashes
-#     upload_manager = UploadManager("127.0.0.1", 5000, file_manager, file_path)
-#
-#     try:
-#         upload_manager.start_server()
-#     except KeyboardInterrupt:
-#         upload_manager.stop_server()
