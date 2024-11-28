@@ -1,4 +1,5 @@
 import socket
+import json
 import threading
 from node.file_manager import FileManager
 
@@ -66,7 +67,8 @@ class UploadManager:
                     _, file_name = request.split()
                     metadata = self.file_manager.get_metadata(file_name)
                     if metadata:
-                        client_socket.sendall(str(metadata).encode())
+                        json_metadata = json.dumps(metadata)
+                        client_socket.sendall(json_metadata.encode())
                         print(f"Sent metadata of {file_name} to peer.")
                     else:
                         client_socket.sendall(b"ERROR: Metadata not found.")

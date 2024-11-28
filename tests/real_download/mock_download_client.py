@@ -19,19 +19,34 @@ def fetch_metadata(host, port, file_name):
     """Fetch file metadata (e.g., piece hashes) from the server."""
     try:
         with socket.create_connection((host, port)) as sock:
+            # Send a request for metadata
             sock.sendall(f"GET_METADATA {file_name}\n".encode())
+
+            # Receive and decode the server's response
             response = sock.recv(4096).decode()
-            metadata = json.loads(response)
-            if "piece_hashes" in metadata and "total_size" in metadata:
+            print(f"Raw response received: {response}")
+
+            # Load the response as JSON
+            metadata = json.loads(response)  # Use JSON to parse the response safely
+
+            # Validate the metadata structure
+            if (
+                isinstance(metadata, dict)
+                and "piece_size" in metadata
+                and "total_size" in metadata
+                and "piece_hashes" in metadata
+            ):
                 return metadata
             else:
                 raise ValueError("Invalid metadata format.")
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Failed to parse metadata as JSON: {e}")
     except Exception as e:
         raise RuntimeError(f"Failed to fetch metadata: {e}")
 
 
 # Configure the downloader
-HOST = "DEVICE_A_IP"  # Replace with Device A's IP address
+HOST = "0.0.0.0"  # Replace with Device A's IP address
 PORT = 5000
 FILE_NAME = "test_REAL_file.txt"
 SAVE_PATH = "downloaded_REAL_test_file.txt"

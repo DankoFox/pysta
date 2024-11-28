@@ -46,7 +46,7 @@ upload_manager = UploadManager(HOST, PORT, file_manager)
 TEST_FILE = "test_REAL_file.txt"
 with open(TEST_FILE, "wb") as f:
     f.write(
-        b"Hello, this is a test file for cross-device download. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam molestie ut ligula sit amet porta. Suspendisse luctus augue at odio mattis porttitor. Nulla facilisis purus convallis lectus ullamcorper sollicitudin. Duis consequat lobortis elementum. Curabitur feugiat a turpis eget egestas. Cras varius velit id hendrerit placerat. Fusce eu efficitur ante. Etiam porttitor nibh vel eros egestas tempus. Aenean luctus molestie augue. "
+        b"Hello, this is a test file for cross-device download. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam molestie ut ligula sit amet porta. Suspendisse luctus augue at odio mattis porttitor. Nulla facilisis purus convallis lectus ullamcorper sollicitudin. Duis consequat lobortis elementum. Curabitur feugiat a turpis eget egestas. Cras varius velit id hendrerit placerat. Fusce eu efficitur ante. Etiam porttitor nibh vel eros egestas tempus. Aenean luctus molestie augue. \n this is the end bye bye"
     )
 file_manager.split_file(TEST_FILE, PIECE_SIZE)
 
