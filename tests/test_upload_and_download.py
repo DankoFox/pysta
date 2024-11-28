@@ -307,3 +307,53 @@ def test_image_file_download(setup_upload_manager):
         assert (
             original_hash == downloaded_hash
         ), "Downloaded small file does not match original."
+
+
+def test_book_file_download(setup_upload_manager):
+    upload_manager, _, piece_size = setup_upload_manager
+
+    # Create a small file and split it
+    readme = "book.pdf"
+    upload_manager.file_manager.split_file(readme, piece_size)
+
+    print("\n============================================================\n")
+    print(
+        f"Metadata after splitting {readme}: {upload_manager.file_manager.get_metadata(readme)}"
+    )
+
+    metadata = upload_manager.file_manager.get_metadata(readme)
+    assert metadata is not None, "Failed to fetch metadata for small file."
+    print(upload_manager.file_manager.get_all_info())
+
+    print("\n++++++++++++++++++++START DOWNLOADING++++++++++++++++\n")
+
+    # Test download for small file
+    piece_hashes = metadata["piece_hashes"]
+    total_size = metadata["total_size"]
+    downloaded_file = "downloaded_book_file.pdf"
+    download_manager = DownloadManager(
+        file_path=downloaded_file,
+        piece_size=piece_size,
+        piece_hashes=piece_hashes,
+        file_size=total_size,
+    )
+    peer_address = ("127.0.0.1", 5000)
+    download_manager.start_download(peer_address, readme)
+
+    # Verify
+    with open(readme, "rb") as f_original, open(downloaded_file, "rb") as f_downloaded:
+        original_content = f_original.read()
+        downloaded_content = f_downloaded.read()
+
+        print(f"Original file content: {original_content}")
+        print(f"Downloaded file content: {downloaded_content}")
+
+        original_hash = hashlib.sha256(original_content).hexdigest()
+        downloaded_hash = hashlib.sha256(downloaded_content).hexdigest()
+
+        print(f"Original file hash: {original_hash}")
+        print(f"Downloaded file hash: {downloaded_hash}")
+
+        assert (
+            original_hash == downloaded_hash
+        ), "Downloaded small file does not match original."
