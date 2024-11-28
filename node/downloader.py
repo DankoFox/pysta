@@ -40,7 +40,7 @@ class Downloader:
 
         for thread in threads:
             thread.join()
-
+            
         # Merge pieces into the output file
         self.file_manager.merge_pieces(self.pieces_downloaded, self.output_path)
         print(f"Download complete. File saved to {self.output_path}.")

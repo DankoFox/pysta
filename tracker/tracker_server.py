@@ -18,7 +18,7 @@ def register():
     files_list = data["files"]
     magnet = data.get("magnet")  # Optional
 
-    # Update peer and file information
+    # Update peer and file information 
     peers[peer_id] = {"ip": ip, "port": port, "files": files_list}
     for file_hash in files_list:
         if file_hash not in files:
@@ -83,6 +83,18 @@ def update():
     )
 
 
+@app.route("/list", methods=["GET"])
+def list():
+    # list of all registered peers
+    peer_list = [
+        {"peer_id": peer_id, "ip": peer_info["ip"], "port": peer_info["port"], "files": peer_info["files"]}
+        for peer_id, peer_info in peers.items()
+    ]
+    
+    # Return just the list of peers
+    return jsonify(peer_list), 200
+
+
 @app.route("/status", methods=["GET"])
 def status():
     return (
@@ -96,6 +108,45 @@ def status():
         200,
     )
 
+@app.route("/request", method="POST")
+def handle_request(): #
+    data = request.json
+    info_hash = data.get("info_hash")
+    peer_id = data.get("peer_id") #uuid
+    port = data.get("port")
+    uploaded = data.get("uploaded")
+    downloaded = data.get("downloaded")
+    left = data.get("left")
+
+    if not all([info_hash, peer_id, port, uploaded, downloaded, left]):#missing para
+        return jsonify({"status": "error", "message": "Missing required parameters."}), 400
+    
+    if info_hash not in files:
+        return jsonify({"status": "error", "message": "Torrent not found."}), 404
+
+    peer_list = [
+        {"ip": peers[peer_id]["ip"], "port": peers[peer_id]["port"]}
+        for peer_id in files[info_hash]["nodes"]
+        if peer_id != peer_id  # Exclude the requesting peer 
+    ]
+    
+    # Response { count_seeder, count_leecher, peers}
+    count_seeder = sum(1 for peer_id in files[info_hash]["nodes"] if peers[peer_id]["left"] == 0)
+    count_leecher = len(files[info_hash]["nodes"]) - count_seeder
+
+    # Build the response
+    response = {
+        "status": "success",
+        #"message": f"Peers for {info_hash} retrieved successfully.",
+        #"tracker_id": tracker_id,  
+        "count_seeder": count_seeder,
+        "count_leecher": count_leecher,
+        "peers": peer_list
+    }
+
+    return jsonify(response), 200
+
+#parse file? 
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
