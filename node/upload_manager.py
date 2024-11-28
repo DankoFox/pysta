@@ -68,7 +68,7 @@ class UploadManager:
                     metadata = self.file_manager.get_metadata(file_name)
                     if metadata:
                         json_metadata = json.dumps(metadata)
-                        client_socket.sendall(json_metadata.encode())
+                        client_socket.sendall(f"{json_metadata}\n\n".encode())
                         print(f"Sent metadata of {file_name} to peer.")
                     else:
                         client_socket.sendall(b"ERROR: Metadata not found.")

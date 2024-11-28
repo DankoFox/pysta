@@ -22,12 +22,20 @@ def fetch_metadata(host, port, file_name):
             # Send a request for metadata
             sock.sendall(f"GET_METADATA {file_name}\n".encode())
 
-            # Receive and decode the server's response
-            response = sock.recv(4096).decode()
+            # Receive data until the delimiter is found
+            response = ""
+            while not response.endswith("\n\n"):
+                chunk = sock.recv(4096).decode()  # Read up to 4096 bytes
+                if not chunk:  # Connection closed unexpectedly
+                    break
+                response += chunk
+
+            # Remove the delimiter
+            response = response.strip()
             print(f"Raw response received: {response}")
 
             # Load the response as JSON
-            metadata = json.loads(response)  # Use JSON to parse the response safely
+            metadata = json.loads(response)  # Parse the JSON string safely
 
             # Validate the metadata structure
             if (
