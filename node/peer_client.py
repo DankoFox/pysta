@@ -54,6 +54,7 @@ class PeerClient:
         Command-line interface for the peer client.
         """
         print("Enter 'query <file_name>' to search for a file.")
+        print("Enter 'upload <file_path>' to share a new file.")
         print("Enter 'exit' to stop the peer client.")
 
         while self.running:
@@ -72,6 +73,10 @@ class PeerClient:
 
             elif command == "tracker_status":
                 self.query_tracker_status()
+
+            elif command.startswith("upload "):
+                file_path = command.split(" ", 1)[1]
+                self.upload_file(file_path)
 
             elif command == "exit":
                 print("Stopping peer client...")
@@ -169,6 +174,41 @@ class PeerClient:
                 print(f"Failed to register with tracker: {response.json()}")
         except requests.RequestException as e:
             print(f"Error registering with tracker: {e}")
+
+    def upload_file(self, file_path):
+        """
+        Upload new file metadata to the tracker and share the file.
+        :param file_path: Path of the file to upload.
+        """
+        try:
+            # Split the file into pieces and get metadata
+            piece_size = 512 * 1024  # 512 KB chunks
+            self.file_manager.split_file(file_path, piece_size)
+
+            # Get metadata for the file
+            file_name = file_path.split("/")[-1]
+            metadata = self.file_manager.get_metadata(file_name)
+            if not metadata:
+                print(f"Error: Could not generate metadata for file '{file_name}'.")
+                return
+
+            # Prepare payload for the tracker (minimal format)
+            payload = {
+                "peer_id": self.peer_id,
+                "file_name": file_name
+            }
+
+            # Send the payload to the tracker
+            response = requests.post(f"{self.tracker_url}/upload", json=payload)
+            if response.status_code == 200:
+                print(f"Successfully uploaded file '{file_name}' to tracker.")
+                # Update local state
+                self.shared_files.append(file_path)
+            else:
+                print(f"Failed to upload file: {response.json().get('message', 'Unknown error')}")
+        except Exception as e:
+            print(f"Error uploading file: {e}")
+
 
     def deregister_from_tracker(self):
         """
@@ -313,11 +353,16 @@ def get_local_ip():
 
 if __name__ == "__main__":
     # Peer-specific configuration
+
+    tracker_url = input("Enter the tracker server URL (e.g., http://127.0.0.1:6969): ").strip()
+    if not tracker_url:
+        print("Invalid tracker URL. Exiting...")
+        exit(1)
+
     peer_id = "peer_1"
     ip = get_local_ip()
     port = 5001
     shared_files = ["test_REAL_file.txt", "book.pdf"]  # Files to share
-    tracker_url = "http://127.0.0.1:6969"
 
     # Start the peer client
     client = PeerClient(peer_id, ip, port, shared_files, tracker_url)

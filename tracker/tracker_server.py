@@ -8,8 +8,6 @@ peers = {}  # {peer_id: {"ip": str, "port": int, "files": [file_names]}}
 files = {}  # {file_name: {"nodes": [peer_ids]}}
 tracker_id = str(uuid.uuid4())  # Unique tracker ID
 
-
-@app.route("/register", methods=["POST"])
 @app.route("/register", methods=["POST"])
 def register():
     """
@@ -65,49 +63,46 @@ def query():
 
     return jsonify({"status": "success", "nodes": node_details}), 200
 
-
-@app.route("/update", methods=["POST"])
-def update():
+@app.route("/upload", methods=["POST"])
+def upload():
     """
-    Update file sharing status for a peer (started, stopped, or completed).
+    Allow a peer to upload metadata for a new file.
     """
     data = request.json
 
     # Validate input data
-    required_fields = {"peer_id", "file_name", "event"}
+    required_fields = {"peer_id", "file_name"}
     if not required_fields.issubset(data.keys()):
         return jsonify({"status": "error", "message": "Missing required fields."}), 400
 
     peer_id = data["peer_id"]
     file_name = data["file_name"]
-    event = data["event"]
 
-    if peer_id not in peers or file_name not in files:
-        return jsonify({"status": "error", "message": "Invalid peer or file."}), 400
+    # Validate that the peer is registered
+    if peer_id not in peers:
+        return jsonify({"status": "error", "message": "Peer not registered."}), 404
 
-    # Handle the event
-    if event == "started":
-        if peer_id not in files[file_name]["nodes"]:
-            files[file_name]["nodes"].append(peer_id)
-    elif event == "stopped":
-        if peer_id in files[file_name]["nodes"]:
-            files[file_name]["nodes"].remove(peer_id)
-    elif event == "completed":
-        # Optional logic for completed event
-        pass
+    # Add the file to the tracker's records
+    if file_name not in files:
+        files[file_name] = {"nodes": []}
+    if peer_id not in files[file_name]["nodes"]:
+        files[file_name]["nodes"].append(peer_id)
+
+    # Update peer's file list
+    if {"file_name": file_name} not in peers[peer_id]["files"]:
+        peers[peer_id]["files"].append({"file_name": file_name})
 
     return (
         jsonify(
             {
                 "status": "success",
-                "message": f"Event '{event}' processed for peer {peer_id}.",
+                "message": f"File '{file_name}' added successfully by peer {peer_id}.",
             }
         ),
         200,
     )
 
 
-@app.route("/deregister", methods=["POST"])
 @app.route("/deregister", methods=["POST"])
 def deregister():
     """
