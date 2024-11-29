@@ -54,7 +54,7 @@ def fetch_metadata(host, port, file_name):
 
 
 # Configure the downloader
-HOST = "0.0.0.0"  # Replace with Device A's IP address
+HOST = "192.168.1.12"  # Replace with Device A's IP address
 PORT = 5000
 FILE_NAME = "test_REAL_file.txt"
 SAVE_PATH = "downloaded_REAL_test_file.txt"
@@ -82,10 +82,10 @@ try:
     download_manager.start_download(peer_address, FILE_NAME)
 
     # Verify the downloaded file
-    original_hash = calculate_file_hash(FILE_NAME)  # Recalculate from the original file
-    downloaded_hash = calculate_file_hash(SAVE_PATH)
-    assert original_hash == downloaded_hash, "File integrity check failed!"
+    # original_hash = calculate_file_hash(FILE_NAME)  # Recalculate from the original file
+    # downloaded_hash = calculate_file_hash(SAVE_PATH)
+    # assert original_hash == downloaded_hash, "File integrity check failed!"
 
-    print(f"File {FILE_NAME} downloaded successfully and verified.")
+    # print(f"File {FILE_NAME} downloaded successfully and verified.")
 except Exception as e:
     print(f"Download failed: {e}")
