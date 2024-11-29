@@ -1,7 +1,7 @@
 import threading
 import requests
 import socket
-import time
+import uuid
 import signal
 import json
 
@@ -55,6 +55,8 @@ class PeerClient:
         """
         print("Enter 'query <file_name>' to search for a file.")
         print("Enter 'upload <file_path>' to share a new file.")
+        print("Enter 'download <file_name> <save_path>' to download a file.")
+        print("Enter 'tracker_status' to get tracker status.")
         print("Enter 'exit' to stop the peer client.")
 
         while self.running:
@@ -359,7 +361,7 @@ if __name__ == "__main__":
         print("Invalid tracker URL. Exiting...")
         exit(1)
 
-    peer_id = "peer_1"
+    peer_id = f"peer_{uuid.uuid4().hex[:8]}"  # Generate an 8-character unique ID
     ip = get_local_ip()
     port = 5001
     shared_files = ["test_REAL_file.txt", "book.pdf"]  # Files to share
@@ -368,4 +370,4 @@ if __name__ == "__main__":
     client = PeerClient(peer_id, ip, port, shared_files, tracker_url)
     client.start()
 
-    print(f"Peer started with IP: {client.ip} : {client.port}")
+    # print(f"Peer started with IP: {client.ip} : {client.port}")
