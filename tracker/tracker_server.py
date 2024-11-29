@@ -150,18 +150,35 @@ def deregister():
 @app.route("/status", methods=["GET"])
 def status():
     """
-    Get tracker status, including peer and file counts.
+    Get tracker status, including peer and file counts with details.
     """
+    files_info = {
+        file_name: {
+            "peers_count": len(data["nodes"]),
+            "peers": [
+                {
+                    "peer_id": peer_id,
+                    "ip": peers[peer_id]["ip"],
+                    "port": peers[peer_id]["port"]
+                }
+                for peer_id in data["nodes"]
+            ],
+        }
+        for file_name, data in files.items()
+    }
+
     return (
         jsonify(
             {
                 "tracker_id": tracker_id,
                 "peers_count": len(peers),
                 "files_count": len(files),
+                "files_info": files_info,
             }
         ),
         200,
     )
+
 
 
 if __name__ == "__main__":

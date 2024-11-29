@@ -3,6 +3,7 @@ import requests
 import socket
 import time
 import signal
+import json
 
 import sys
 import os
@@ -69,11 +70,43 @@ class PeerClient:
                 else:
                     print("Usage: download <file_name> <save_path>")
 
+            elif command == "tracker_status":
+                self.query_tracker_status()
+
             elif command == "exit":
                 print("Stopping peer client...")
                 self.running = False
             else:
                 print("Unknown command. Try 'query <file_name>' or 'exit'.")
+
+    def query_tracker_status(self):
+        """
+        Query the tracker for its current status, including detailed file sharing information.
+        """
+        try:
+            response = requests.get(f"{self.tracker_url}/status")  # Assuming self.tracker_url is the tracker's base URL
+            if response.status_code == 200:
+                data = response.json()
+                print("Tracker Status:")
+                print(f"  Tracker ID: {data.get('tracker_id', 'Unknown')}")
+                print(f"  Peers Count: {data.get('peers_count', 0)}")
+                print(f"  Files Count: {data.get('files_count', 0)}")
+                print("  Files Information:")
+
+                files_info = data.get("files_info", {})
+                if not files_info:
+                    print("    No files being shared.")
+                else:
+                    for file_name, details in files_info.items():
+                        print(f"    - File Name: {file_name}")
+                        print(f"      Peers Sharing ({details['peers_count']}):")
+                        for peer in details["peers"]:
+                            print(f"        Peer ID: {peer['peer_id']}, IP: {peer['ip']}, Port: {peer['port']}")
+            else:
+                print(f"Failed to fetch tracker status. Error: {response.text}")
+        except Exception as e:
+            print(f"Error querying tracker status: {e}")
+
 
     def query_file(self, file_name):
         """
@@ -104,7 +137,7 @@ class PeerClient:
 
         # Process files to calculate metadata and prepare for sharing
         for file_path in self.shared_files:
-            piece_size = 512  # 1MB chunks
+            piece_size = 512 * 1024  # 512 KB chunks
             self.file_manager.split_file(file_path, piece_size)
 
             # Get metadata to extract information
@@ -204,17 +237,30 @@ class PeerClient:
         except Exception as e:
             print(f"Error downloading file: {e}")
 
-    def fetch_metadata(self, host, port, file_name):
-        """
-        Fetch file metadata (e.g., piece hashes) from the server.
-        This assumes metadata is fetched via an HTTP request instead of a socket connection.
-        """
+    @staticmethod
+    def fetch_metadata(host, port, file_name):
+        """Fetch file metadata (e.g., piece hashes) from the peer."""
         try:
-            response = requests.get(
-                f"http://{host}:{port}/metadata", params={"file_name": file_name}
-            )
-            if response.status_code == 200:
-                metadata = response.json()
+            with socket.create_connection((host, port)) as sock:
+                # Send a request for metadata
+                sock.sendall(f"GET_METADATA {file_name}\n".encode())
+
+                # Receive data until the delimiter is found
+                response = ""
+                while not response.endswith("\n\n"):
+                    chunk = sock.recv(4096).decode()  # Read up to 4096 bytes
+                    if not chunk:  # Connection closed unexpectedly
+                        break
+                    response += chunk
+
+                # Remove the delimiter
+                response = response.strip()
+                # print(f"Raw response received: {response}")
+
+                # Load the response as JSON
+                metadata = json.loads(response)  # Parse the JSON string safely
+
+                # Validate the metadata structure
                 if (
                     isinstance(metadata, dict)
                     and "piece_size" in metadata
@@ -224,12 +270,10 @@ class PeerClient:
                     return metadata
                 else:
                     raise ValueError("Invalid metadata format.")
-            else:
-                print(f"Error fetching metadata: {response.json()}")
-                return None
-        except requests.RequestException as e:
-            print(f"Error fetching metadata: {e}")
-            return None
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Failed to parse metadata as JSON: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Failed to fetch metadata: {e}")
 
     def start(self):
         """
